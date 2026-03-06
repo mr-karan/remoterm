@@ -4,12 +4,7 @@ Persistent, multi-session remote terminal server. A `ttyd` alternative built in 
 
 ![Remoterm UI — desktop with btop](static/screenshot.png)
 
-<details>
-<summary>Mobile view</summary>
-
-![Remoterm UI — mobile with soft keyboard](static/screenshot-mobile.png)
-
-</details>
+<img src="static/screenshot-mobile.png" alt="Remoterm UI — mobile with soft keyboard" width="280">
 
 ## Features
 

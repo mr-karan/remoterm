@@ -11,9 +11,13 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash \
+        btop \
         ca-certificates \
         curl \
         git \
+        htop \
+        less \
+        procps \
         tini \
         zsh \
     && rm -rf /var/lib/apt/lists/*

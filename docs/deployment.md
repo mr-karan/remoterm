@@ -106,6 +106,8 @@ Then use container paths for sessions:
 - `cwd`: `/workspace/myproject`
 - `shell`: `/bin/bash`
 
+The default runtime image includes common shell tooling plus `htop` and `btop`, so those TUIs work in container-backed sessions without extending the image first.
+
 ### Extending the image
 
 ```dockerfile

@@ -157,12 +157,18 @@ impl Storage {
             "DELETE FROM session_events WHERE session_id = ?1",
             params![id.to_string()],
         )?;
-        tx.execute("DELETE FROM sessions WHERE id = ?1", params![id.to_string()])?;
+        tx.execute(
+            "DELETE FROM sessions WHERE id = ?1",
+            params![id.to_string()],
+        )?;
         tx.commit()?;
         Ok(())
     }
 
-    pub fn load_output_history(&self, session_id: Uuid) -> anyhow::Result<Vec<PersistedOutputEvent>> {
+    pub fn load_output_history(
+        &self,
+        session_id: Uuid,
+    ) -> anyhow::Result<Vec<PersistedOutputEvent>> {
         let conn = self.connect()?;
         let mut stmt = conn.prepare(
             "SELECT seq, payload
@@ -249,12 +255,7 @@ impl Storage {
              CREATE UNIQUE INDEX IF NOT EXISTS idx_session_events_session_seq
                  ON session_events(session_id, seq);",
         )?;
-        add_column_if_missing(
-            &conn,
-            "sessions",
-            "archived",
-            "INTEGER NOT NULL DEFAULT 0",
-        )?;
+        add_column_if_missing(&conn, "sessions", "archived", "INTEGER NOT NULL DEFAULT 0")?;
         Ok(())
     }
 

@@ -46,6 +46,16 @@
       padding: 14px;
     }
 
+    .app.focus-mode {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .app.focus-mode .sidebar {
+      display: none;
+    }
+
     .sidebar {
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -250,6 +260,13 @@
       gap: 8px;
     }
 
+    .toolbar button.active {
+      border-color: #755631;
+      background: linear-gradient(180deg, var(--accent), #cc9350);
+      color: #2b1d0c;
+      font-weight: 700;
+    }
+
     .session-actions {
       display: flex;
       gap: 6px;
@@ -317,6 +334,25 @@
       width: 100%;
       height: 100%;
       min-height: 420px;
+    }
+
+    .app.focus-mode .main {
+      gap: 8px;
+    }
+
+    .app.focus-mode .toolbar {
+      padding: 6px 8px;
+      justify-content: flex-end;
+      border-radius: 12px;
+    }
+
+    .app.focus-mode .toolbar .left,
+    .app.focus-mode .session-actions {
+      display: none;
+    }
+
+    .app.focus-mode #terminal-wrap {
+      padding: 3px;
     }
 
     .kbd {
@@ -614,8 +650,9 @@
             <button class="warn" id="archive-btn" type="button">Archive</button>
             <button class="danger" id="delete-btn" type="button">Delete</button>
           </div>
+          <button id="focus-btn" type="button">Focus</button>
           <button class="mobile-only" id="sessions-btn" type="button">Sessions</button>
-          <button class="mobile-only" id="keys-btn" type="button">Keys</button>
+          <button id="keys-btn" type="button">Keys</button>
         </div>
       </div>
 
@@ -665,10 +702,11 @@
       seqBySession: {},
       unreadBySession: {},
       isMobile: window.matchMedia('(max-width: 900px)').matches,
-      keyboardVisible: true,
+      keyboardVisible: false,
       keyboardFns: false,
       sidebarOpen: false,
       showArchived: false,
+      focusMode: false,
       modifiers: {
         ctrl: { mode: 'off', lastTapAt: 0 },
         alt: { mode: 'off', lastTapAt: 0 },
@@ -686,6 +724,7 @@
       title: document.getElementById('session-title'),
       meta: document.getElementById('session-meta'),
       status: document.getElementById('global-status'),
+      focusBtn: document.getElementById('focus-btn'),
       sessionsBtn: document.getElementById('sessions-btn'),
       keysBtn: document.getElementById('keys-btn'),
       sessionActions: document.getElementById('session-actions'),
@@ -777,8 +816,15 @@
       document.body.classList.toggle('sidebar-open', state.isMobile && state.sidebarOpen);
     }
 
+    function syncFocusMode() {
+      document.querySelector('.app').classList.toggle('focus-mode', state.focusMode);
+      el.focusBtn.textContent = state.focusMode ? 'Exit Focus' : 'Focus';
+      el.focusBtn.classList.toggle('active', state.focusMode);
+      el.sessionsBtn.hidden = !state.isMobile;
+    }
+
     function syncKeyboard() {
-      const showKeyboard = !state.isMobile || state.keyboardVisible;
+      const showKeyboard = state.keyboardVisible;
       el.kbd.hidden = !showKeyboard;
       el.row2.hidden = state.isMobile ? state.keyboardFns : false;
       el.row3.hidden = state.isMobile ? !state.keyboardFns : false;
@@ -793,11 +839,12 @@
       if (state.isMobile) {
         state.keyboardVisible = false;
       } else {
-        state.keyboardVisible = true;
+        state.keyboardVisible = false;
         state.sidebarOpen = false;
         state.keyboardFns = false;
       }
       syncSidebar();
+      syncFocusMode();
       syncKeyboard();
       term.options.fontSize = state.isMobile ? 13 : 14;
       requestAnimationFrame(() => {
@@ -1252,6 +1299,22 @@
       });
     });
 
+    el.focusBtn.addEventListener('click', () => {
+      state.focusMode = !state.focusMode;
+      state.sidebarOpen = false;
+      if (state.focusMode) {
+        state.keyboardVisible = false;
+        state.keyboardFns = false;
+      }
+      syncSidebar();
+      syncFocusMode();
+      syncKeyboard();
+      requestAnimationFrame(() => {
+        fitAddon.fit();
+        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+      });
+    });
+
     el.kbdFnToggle.addEventListener('click', () => {
       state.keyboardFns = !state.keyboardFns;
       syncKeyboard();
@@ -1281,6 +1344,13 @@
       if (event.key === 'Escape' && state.sidebarOpen) {
         state.sidebarOpen = false;
         syncSidebar();
+      } else if (event.key === 'Escape' && state.focusMode) {
+        state.focusMode = false;
+        syncFocusMode();
+        requestAnimationFrame(() => {
+          fitAddon.fit();
+          sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        });
       }
     });
 

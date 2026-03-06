@@ -222,7 +222,10 @@ impl Session {
         let persisted_history = storage.load_output_history(summary.id)?;
         let next_seq = persisted_history.last().map(|event| event.seq).unwrap_or(0);
         summary.attached_clients = 0;
-        if matches!(summary.status, SessionStatus::Running | SessionStatus::Starting) {
+        if matches!(
+            summary.status,
+            SessionStatus::Running | SessionStatus::Starting
+        ) {
             summary.pid = None;
         }
         Ok(Arc::new(Self {
@@ -452,7 +455,10 @@ impl Session {
                 seq: event.seq,
                 data: event.data.clone(),
             },
-            self.history.lock().expect("history lock poisoned").max_bytes,
+            self.history
+                .lock()
+                .expect("history lock poisoned")
+                .max_bytes,
             now,
         ) {
             warn!(
@@ -679,7 +685,10 @@ async fn restart_session(
     };
 
     if session.summary().archived {
-        return Err((StatusCode::BAD_REQUEST, "cannot restart an archived session".into()));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "cannot restart an archived session".into(),
+        ));
     }
 
     if let Err(err) = kill_session(session.clone()).await {
@@ -728,7 +737,10 @@ async fn archive_session(
             .ok_or((StatusCode::NOT_FOUND, "session not found".into()))?
     };
 
-    if matches!(session.summary().status, SessionStatus::Running | SessionStatus::Starting) {
+    if matches!(
+        session.summary().status,
+        SessionStatus::Running | SessionStatus::Starting
+    ) {
         if let Err(err) = kill_session(session.clone()).await {
             warn!("failed to stop session {} before archive: {}", id, err);
         }

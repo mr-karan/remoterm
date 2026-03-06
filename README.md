@@ -2,18 +2,26 @@
 
 Persistent, multi-session remote terminal server. A `ttyd` alternative built in Rust for long-running coding agent workflows.
 
-![Remoterm UI](static/screenshot.png)
+![Remoterm UI — desktop with btop](static/screenshot.png)
 
-## Why
+<details>
+<summary>Mobile view</summary>
 
-`ttyd` is great for single shared sessions. Remoterm is designed for a different use case:
+![Remoterm UI — mobile with soft keyboard](static/screenshot-mobile.png)
 
-- **Multiple named sessions** in a sidebar — switch between `backend`, `frontend`, `infra`
+</details>
+
+## Features
+
+- **Multiple named sessions** in a sidebar — switch between `backend`, `monitoring`, `frontend`
 - **Sessions survive disconnects** — close your laptop, reattach from your phone, output picks up where you left off
 - **Sessions survive server restarts** — running sessions are respawned automatically
-- **Mobile keyboard** — Ctrl, Alt, Esc, Tab, arrows, Home/End, PgUp/PgDn, F1–F12
-- **Unread badges** on background sessions
-- **Single binary**, SQLite for state
+- **Focus mode** — collapse sidebar and chrome for a distraction-free terminal (Esc to exit)
+- **Mobile soft keyboard** — Ctrl, Alt, Esc, Tab, arrows, Home/End, PgUp/PgDn, F1–F12 with one-shot and lock modifiers
+- **Unread badges** on background sessions with auto-refreshing session list
+- **Session management** — rename, stop, restart, archive/restore, delete
+- **Single binary** with embedded web UI, SQLite for state
+- **Error toasts** — API errors surface in the UI instead of silently failing
 
 ## Quick start
 
@@ -22,6 +30,12 @@ cargo run -p remoterm-server -- --listen 127.0.0.1:8787
 ```
 
 Then open http://127.0.0.1:8787/
+
+Or with Docker:
+
+```bash
+docker compose up -d
+```
 
 ## API
 
@@ -67,9 +81,8 @@ just dev
 # Run all tests (unit + restart recovery integration)
 just test
 
-# Or use make
-make smoke           # interactive smoke test
-make test-restart    # restart recovery integration test
+# Interactive smoke test
+just smoke
 ```
 
 ## Security

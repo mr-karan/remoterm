@@ -2,6 +2,8 @@
 
 Persistent, multi-session remote terminal server. A `ttyd` alternative built in Rust for long-running coding agent workflows.
 
+![Remoterm UI](static/screenshot.png)
+
 ## Why
 
 `ttyd` is great for single shared sessions. Remoterm is designed for a different use case:

@@ -8,16 +8,11 @@ Persistent, multi-session remote terminal server. A `ttyd` alternative built in 
 
 ## Features
 
-- **Multiple named sessions** in a sidebar — switch between `backend`, `monitoring`, `frontend`
-- **Sessions survive disconnects** — close your laptop, reattach from your phone, output picks up where you left off
-- **Sessions survive server restarts** — running sessions are respawned automatically
-- **Focus mode** — collapse sidebar and chrome for a distraction-free terminal (Esc to exit)
-- **Mobile soft keyboard** — Ctrl, Alt, Esc, Tab, arrows, Home/End, PgUp/PgDn, F1–F12 with one-shot and lock modifiers
-- **Ctrl+Arrow and modified navigation** — soft keys emit proper CSI sequences for Ctrl+Arrow, Ctrl+Home/End, etc.
-- **Live terminal size indicator** — cols x rows displayed in the toolbar, updates on every resize
-- **Unread badges** on background sessions with auto-refreshing session list
-- **Session management** — rename, stop, restart, archive/restore, delete
-- **Single binary** with embedded web UI, SQLite for state
+- **Multiple named sessions** — run `backend`, `monitoring`, `frontend` side by side, switch from a sidebar
+- **Survives everything** — close your laptop, reattach from your phone, even restart the server — sessions keep running
+- **Works on mobile** — full soft keyboard with Ctrl, Alt, Esc, arrows, function keys — usable from a phone
+- **Focus mode** — hide the sidebar and chrome for a distraction-free terminal
+- **Single binary** — no dependencies, no config files, just run it. SQLite for persistence, web UI built in
 
 ## Install
 

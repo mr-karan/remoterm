@@ -260,6 +260,18 @@
       gap: 8px;
     }
 
+    .term-size {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1;
+      white-space: nowrap;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
     .toolbar button.active {
       border-color: #755631;
       background: linear-gradient(180deg, var(--accent), #cc9350);
@@ -540,6 +552,11 @@
         gap: 6px;
       }
 
+      .term-size {
+        padding: 4px 7px;
+        font-size: 0.68rem;
+      }
+
       .session-actions {
         gap: 6px;
       }
@@ -643,6 +660,7 @@
           <span class="hint" id="session-meta">Create or choose a session from the sidebar</span>
         </div>
         <div class="toolbar-actions">
+          <span class="term-size" id="term-size">--x--</span>
           <div class="session-actions" id="session-actions">
             <button id="rename-btn" type="button">Rename</button>
             <button id="stop-btn" type="button">Stop</button>
@@ -724,6 +742,7 @@
       title: document.getElementById('session-title'),
       meta: document.getElementById('session-meta'),
       status: document.getElementById('global-status'),
+      termSize: document.getElementById('term-size'),
       focusBtn: document.getElementById('focus-btn'),
       sessionsBtn: document.getElementById('sessions-btn'),
       keysBtn: document.getElementById('keys-btn'),
@@ -848,8 +867,7 @@
       syncKeyboard();
       term.options.fontSize = state.isMobile ? 13 : 14;
       requestAnimationFrame(() => {
-        fitAddon.fit();
-        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        fitTerminal();
         updateToolbar();
       });
     }
@@ -1025,6 +1043,18 @@
       return map[ch] || data;
     }
 
+    function updateTermSize(cols = term.cols, rows = term.rows) {
+      const safeCols = Number.isFinite(cols) && cols > 0 ? cols : term.cols;
+      const safeRows = Number.isFinite(rows) && rows > 0 ? rows : term.rows;
+      el.termSize.textContent = `${safeCols}x${safeRows}`;
+    }
+
+    function fitTerminal() {
+      fitAddon.fit();
+      updateTermSize();
+      sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+    }
+
     function applyInputModifiers(data) {
       let out = data;
       if (modifierMode('ctrl') !== 'off') {
@@ -1045,14 +1075,24 @@
       });
     }
 
-    function sendSoftKeyBytes(bytes, { consumeCtrl = false, consumeAlt = true } = {}) {
-      let out = bytes;
-      if (modifierMode('alt') !== 'off') {
+    function resolveSoftKeyBytes(action) {
+      const ctrlActive = modifierMode('ctrl') !== 'off';
+      const altActive = modifierMode('alt') !== 'off';
+      let out = ctrlActive && action.ctrlBytes ? action.ctrlBytes : action.bytes;
+      if (altActive) {
         out = `\x1b${out}`;
-        if (consumeAlt) consumeModifier('alt');
       }
-      if (consumeCtrl) consumeModifier('ctrl');
-      sendInputText(out);
+      if (ctrlActive && (action.ctrlBytes || action.consumeCtrl)) {
+        consumeModifier('ctrl');
+      }
+      if (altActive && action.consumeAlt !== false) {
+        consumeModifier('alt');
+      }
+      return out;
+    }
+
+    function sendSoftKeyAction(action) {
+      sendInputText(resolveSoftKeyBytes(action));
     }
 
     function startSessionRefreshLoop() {
@@ -1136,19 +1176,18 @@
     });
 
     term.onResize(({ cols, rows }) => {
+      updateTermSize(cols, rows);
       sendFrame({ type: 'resize', cols, rows });
     });
 
     window.addEventListener('resize', () => {
       setViewportHeight();
-      fitAddon.fit();
-      sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+      fitTerminal();
     });
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', () => {
         setViewportHeight();
-        fitAddon.fit();
-        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        fitTerminal();
       });
     }
 
@@ -1243,7 +1282,7 @@
         modifierButtons[action.modifier] = btn;
         btn.onclick = () => toggleModifier(action.modifier);
       } else {
-        btn.onclick = () => sendSoftKeyBytes(action.bytes);
+        btn.onclick = () => sendSoftKeyAction(action);
       }
       parent.appendChild(btn);
       return btn;
@@ -1254,17 +1293,17 @@
       ['Alt', { modifier: 'alt' }, 'mod'],
       ['Esc', { bytes: '\x1b' }, ''],
       ['Tab', { bytes: '\t' }, ''],
-      ['Home', { bytes: '\x1b[H' }, 'wide'],
-      ['End', { bytes: '\x1b[F' }, 'wide'],
-      ['PgUp', { bytes: '\x1b[5~' }, 'wide'],
-      ['PgDn', { bytes: '\x1b[6~' }, 'wide'],
+      ['Home', { bytes: '\x1b[H', ctrlBytes: '\x1b[1;5H' }, 'wide'],
+      ['End', { bytes: '\x1b[F', ctrlBytes: '\x1b[1;5F' }, 'wide'],
+      ['PgUp', { bytes: '\x1b[5~', ctrlBytes: '\x1b[5;5~' }, 'wide'],
+      ['PgDn', { bytes: '\x1b[6~', ctrlBytes: '\x1b[6;5~' }, 'wide'],
     ].forEach(([label, action, cls]) => addKeyButton(el.row1, label, action, cls));
 
     [
-      ['↑', { bytes: '\x1b[A' }],
-      ['↓', { bytes: '\x1b[B' }],
-      ['←', { bytes: '\x1b[D' }],
-      ['→', { bytes: '\x1b[C' }],
+      ['↑', { bytes: '\x1b[A', ctrlBytes: '\x1b[1;5A' }],
+      ['↓', { bytes: '\x1b[B', ctrlBytes: '\x1b[1;5B' }],
+      ['←', { bytes: '\x1b[D', ctrlBytes: '\x1b[1;5D' }],
+      ['→', { bytes: '\x1b[C', ctrlBytes: '\x1b[1;5C' }],
     ].forEach(([label, action]) => addKeyButton(el.row2, label, action));
 
     for (let i = 1; i <= 12; i++) {
@@ -1294,8 +1333,7 @@
       state.keyboardVisible = !state.keyboardVisible;
       syncKeyboard();
       requestAnimationFrame(() => {
-        fitAddon.fit();
-        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        fitTerminal();
       });
     });
 
@@ -1310,8 +1348,7 @@
       syncFocusMode();
       syncKeyboard();
       requestAnimationFrame(() => {
-        fitAddon.fit();
-        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        fitTerminal();
       });
     });
 
@@ -1324,8 +1361,7 @@
       state.keyboardVisible = false;
       syncKeyboard();
       requestAnimationFrame(() => {
-        fitAddon.fit();
-        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        fitTerminal();
       });
     });
 
@@ -1348,8 +1384,7 @@
         state.focusMode = false;
         syncFocusMode();
         requestAnimationFrame(() => {
-          fitAddon.fit();
-          sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+          fitTerminal();
         });
       }
     });

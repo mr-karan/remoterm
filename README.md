@@ -13,20 +13,36 @@ Persistent, multi-session remote terminal server. A `ttyd` alternative built in 
 - **Sessions survive server restarts** — running sessions are respawned automatically
 - **Focus mode** — collapse sidebar and chrome for a distraction-free terminal (Esc to exit)
 - **Mobile soft keyboard** — Ctrl, Alt, Esc, Tab, arrows, Home/End, PgUp/PgDn, F1–F12 with one-shot and lock modifiers
+- **Ctrl+Arrow and modified navigation** — soft keys emit proper CSI sequences for Ctrl+Arrow, Ctrl+Home/End, etc.
+- **Live terminal size indicator** — cols x rows displayed in the toolbar, updates on every resize
 - **Unread badges** on background sessions with auto-refreshing session list
 - **Session management** — rename, stop, restart, archive/restore, delete
 - **Single binary** with embedded web UI, SQLite for state
 - **Error toasts** — API errors surface in the UI instead of silently failing
 
+## Install
+
+Download a prebuilt binary from the [latest release](https://github.com/mr-karan/remoterm/releases/latest), or use Docker:
+
+```bash
+docker pull ghcr.io/mr-karan/remoterm:latest
+```
+
+Or build from source:
+
+```bash
+cargo build --release -p remoterm-server
+```
+
 ## Quick start
 
 ```bash
-cargo run -p remoterm-server -- --listen 127.0.0.1:8787
+remoterm-server --listen 127.0.0.1:8787
 ```
 
 Then open http://127.0.0.1:8787/
 
-Or with Docker:
+Or with Docker Compose:
 
 ```bash
 docker compose up -d

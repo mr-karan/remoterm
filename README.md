@@ -18,7 +18,6 @@ Persistent, multi-session remote terminal server. A `ttyd` alternative built in 
 - **Unread badges** on background sessions with auto-refreshing session list
 - **Session management** — rename, stop, restart, archive/restore, delete
 - **Single binary** with embedded web UI, SQLite for state
-- **Error toasts** — API errors surface in the UI instead of silently failing
 
 ## Install
 

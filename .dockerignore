@@ -1,0 +1,7 @@
+target
+.git
+.DS_Store
+remoterm.sqlite3
+remoterm.sqlite3-shm
+remoterm.sqlite3-wal
+docker-data

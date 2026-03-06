@@ -1,0 +1,28 @@
+services:
+  remoterm:
+    image: ghcr.io/mr-karan/remoterm:latest
+    container_name: remoterm
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      RUST_LOG: remoterm_server=info
+    command:
+      - --listen
+      - 0.0.0.0:8787
+      - --db-path
+      - /data/remoterm.sqlite3
+    volumes:
+      - remoterm-data:/data
+      # Optional: mount host directories so session cwd paths exist inside the container
+      # - /home/youruser:/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  remoterm-data:

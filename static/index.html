@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Remoterm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
+  <style>
+    :root {
+      --app-height: 100vh;
+      --bg: #0e1518;
+      --panel: #122229;
+      --panel-2: #1a3038;
+      --text: #e4f5f7;
+      --muted: #8fb3b7;
+      --accent: #e1a95f;
+      --accent-2: #ffcf8b;
+      --danger: #ff8e8e;
+      --ok: #74d89a;
+      --border: #2f5057;
+      --shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+      --mono: "IBM Plex Mono", "SF Mono", "Menlo", monospace;
+      --sans: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      min-height: 100%;
+      background:
+        radial-gradient(1000px 500px at -10% -10%, #264554 0%, transparent 55%),
+        radial-gradient(800px 400px at 120% -20%, #513f26 0%, transparent 45%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: var(--app-height);
+      height: var(--app-height);
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .sidebar {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(160deg, var(--panel), #0e1f25 70%);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      letter-spacing: 0.02em;
+      font-size: 1.05rem;
+    }
+
+    .brand .status {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .create {
+      display: grid;
+      gap: 7px;
+      padding: 8px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .create input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0b171b;
+      color: var(--text);
+      padding: 8px 10px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+    }
+
+    .create button {
+      border: 1px solid #755631;
+      background: linear-gradient(180deg, var(--accent), #cc9350);
+      color: #2b1d0c;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .session-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      overflow: auto;
+      display: grid;
+      gap: 6px;
+    }
+
+    .session-item {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 8px;
+      cursor: pointer;
+      display: grid;
+      gap: 3px;
+    }
+
+    .session-item.active {
+      border-color: var(--accent);
+      background: rgba(225, 169, 95, 0.14);
+    }
+
+    .session-item .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.84rem;
+    }
+
+    .session-item .top-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .session-item .meta {
+      font-family: var(--mono);
+      color: var(--muted);
+      font-size: 0.72rem;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .pill {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .pill.running { background: rgba(116, 216, 154, 0.2); color: var(--ok); }
+    .pill.exited { background: rgba(255, 142, 142, 0.2); color: var(--danger); }
+    .pill.starting { background: rgba(225, 169, 95, 0.2); color: var(--accent-2); }
+    .pill.stopped { background: rgba(143, 179, 183, 0.16); color: var(--muted); }
+    .pill.archived { background: rgba(95, 149, 225, 0.18); color: #a8c8ff; }
+
+    .unread-badge {
+      min-width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #2b1d0c;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
+
+    .sidebar-tools {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-tools button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .session-actions[hidden] {
+      display: none;
+    }
+
+    .toolbar {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      background: linear-gradient(160deg, #13262d, #0f1f25);
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.86rem;
+    }
+
+    .toolbar .left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .toolbar .title {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar button {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #17303a;
+      color: var(--text);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .session-actions {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .session-actions::-webkit-scrollbar {
+      display: none;
+    }
+
+    .session-actions button {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #17303a;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .session-actions button:hover:not(:disabled) {
+      background: #1e3d49;
+    }
+
+    .session-actions button.warn {
+      border-color: #755631;
+      color: var(--accent-2);
+    }
+
+    .session-actions button.warn:hover:not(:disabled) {
+      background: #2a2318;
+    }
+
+    .session-actions button.danger {
+      border-color: #7f4c4c;
+      color: var(--danger);
+    }
+
+    .session-actions button.danger:hover:not(:disabled) {
+      background: #2a1818;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+
+    #terminal-wrap {
+      min-height: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #071115;
+      box-shadow: var(--shadow);
+      padding: 8px;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+    }
+
+    .kbd {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      background: linear-gradient(180deg, #1b2f37, #15262d);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 6px;
+    }
+
+    .kbd-top {
+      display: none;
+    }
+
+    .row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .key {
+      border: 1px solid #3a5e66;
+      border-radius: 9px;
+      background: #16323b;
+      color: #e2f0f2;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      min-height: 34px;
+      min-width: 42px;
+      padding: 6px 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .key.mod {
+      position: relative;
+      background: #2f3d1d;
+      border-color: #5b7240;
+      color: #dde7ca;
+    }
+    .key.mod.oneshot {
+      background: #485e25;
+      border-color: #90b25d;
+    }
+    .key.mod.locked {
+      background: #637d34;
+      border-color: #b8dc7b;
+      color: #f2f6e8;
+    }
+    .key.mod.oneshot::after,
+    .key.mod.locked::after {
+      position: absolute;
+      top: 3px;
+      right: 4px;
+      font-size: 0.56rem;
+      line-height: 1;
+      letter-spacing: 0.03em;
+    }
+    .key.mod.oneshot::after { content: '1x'; }
+    .key.mod.locked::after { content: 'lock'; }
+    .key.wide { min-width: 54px; }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .toast {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: #3a1c1c;
+      border: 1px solid #7f4c4c;
+      color: var(--danger);
+      font-size: 0.82rem;
+      padding: 10px 16px;
+      border-radius: 10px;
+      max-width: min(500px, 90vw);
+      word-break: break-word;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      animation: toast-in 200ms ease;
+    }
+
+    .toast.fade-out {
+      opacity: 0;
+      transition: opacity 300ms ease;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .mobile-scrim {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        overflow: hidden;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        min-height: var(--app-height);
+        height: var(--app-height);
+        padding: 0;
+        gap: 0;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: max(10px, env(safe-area-inset-top));
+        left: 8px;
+        bottom: max(10px, env(safe-area-inset-bottom));
+        width: min(86vw, 360px);
+        max-height: none;
+        z-index: 30;
+        transform: translateX(-112%);
+        transition: transform 180ms ease;
+        border-radius: 18px;
+      }
+
+      body.sidebar-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .mobile-scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(3px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 20;
+      }
+
+      body.sidebar-open .mobile-scrim {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .main {
+        min-height: 0;
+        grid-template-rows: auto 1fr auto;
+        gap: 8px;
+        padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)) 8px;
+      }
+
+      .toolbar {
+        padding: 8px 10px;
+        border-radius: 16px;
+        align-items: flex-start;
+      }
+
+      .toolbar .left {
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .toolbar .title {
+        font-size: 0.94rem;
+      }
+
+      .toolbar button {
+        padding: 6px 9px;
+        font-size: 0.74rem;
+      }
+
+      .toolbar-actions {
+        gap: 6px;
+      }
+
+      .session-actions {
+        gap: 6px;
+      }
+
+      .session-actions button {
+        padding: 5px 9px;
+        font-size: 0.72rem;
+      }
+
+      .mobile-only {
+        display: inline-flex;
+      }
+
+      #terminal-wrap {
+        padding: 4px;
+        border-radius: 16px;
+      }
+
+      #terminal {
+        min-height: 0;
+      }
+
+      .kbd {
+        padding: 6px;
+        border-radius: 16px;
+        gap: 6px;
+      }
+
+      .kbd-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .kbd-mode {
+        color: var(--muted);
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .kbd-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .kbd-toggle {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: #17303a;
+        color: var(--text);
+        padding: 5px 9px;
+        font-size: 0.72rem;
+      }
+
+      .row {
+        gap: 5px;
+      }
+
+      .key {
+        min-width: 38px;
+        min-height: 30px;
+        padding: 5px 7px;
+        font-size: 0.72rem;
+      }
+
+      .key.wide {
+        min-width: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="mobile-scrim" id="mobile-scrim"></div>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Remoterm</h1>
+        <div class="status" id="global-status">disconnected</div>
+      </div>
+
+      <form class="create" id="create-form">
+        <input id="new-name" placeholder="Session name" value="coding" required>
+        <input id="new-cwd" placeholder="CWD" value="/tmp" required>
+        <input id="new-shell" placeholder="Shell" value="/bin/bash" required>
+        <button type="submit">Create Session</button>
+      </form>
+
+      <div class="sidebar-tools">
+        <button id="toggle-archived-btn" type="button">Show Archived</button>
+      </div>
+
+      <ul class="session-list" id="session-list"></ul>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <div class="left">
+          <span class="title" id="session-title">No session selected</span>
+          <span class="hint" id="session-meta">Create or choose a session from the sidebar</span>
+        </div>
+        <div class="toolbar-actions">
+          <div class="session-actions" id="session-actions">
+            <button id="rename-btn" type="button">Rename</button>
+            <button id="stop-btn" type="button">Stop</button>
+            <button id="restart-btn" type="button">Restart</button>
+            <button class="warn" id="archive-btn" type="button">Archive</button>
+            <button class="danger" id="delete-btn" type="button">Delete</button>
+          </div>
+          <button class="mobile-only" id="sessions-btn" type="button">Sessions</button>
+          <button class="mobile-only" id="keys-btn" type="button">Keys</button>
+        </div>
+      </div>
+
+      <section id="terminal-wrap">
+        <div id="terminal"></div>
+      </section>
+
+      <section class="kbd" id="kbd">
+        <div class="kbd-top">
+          <span class="kbd-mode" id="kbd-mode">nav keys</span>
+          <div class="kbd-actions">
+            <button class="kbd-toggle" id="kbd-fn-toggle" type="button">Fn</button>
+            <button class="kbd-toggle" id="kbd-hide" type="button">Hide</button>
+          </div>
+        </div>
+        <div class="row" id="kbd-row-1"></div>
+        <div class="row" id="kbd-row-2"></div>
+        <div class="row" id="kbd-row-3"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+  <script>
+    const term = new Terminal({
+      convertEol: true,
+      cursorBlink: true,
+      fontFamily: '"IBM Plex Mono", Menlo, monospace',
+      fontSize: 14,
+      theme: {
+        background: '#071115',
+        foreground: '#d8edf0',
+        cursor: '#ffcf8b',
+      },
+      allowProposedApi: true,
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal'));
+    fitAddon.fit();
+
+    const state = {
+      sessions: [],
+      activeSessionId: null,
+      socket: null,
+      seqBySession: {},
+      unreadBySession: {},
+      isMobile: window.matchMedia('(max-width: 900px)').matches,
+      keyboardVisible: true,
+      keyboardFns: false,
+      sidebarOpen: false,
+      showArchived: false,
+      modifiers: {
+        ctrl: { mode: 'off', lastTapAt: 0 },
+        alt: { mode: 'off', lastTapAt: 0 },
+      },
+    };
+
+    const el = {
+      scrim: document.getElementById('mobile-scrim'),
+      list: document.getElementById('session-list'),
+      toggleArchived: document.getElementById('toggle-archived-btn'),
+      createForm: document.getElementById('create-form'),
+      name: document.getElementById('new-name'),
+      cwd: document.getElementById('new-cwd'),
+      shell: document.getElementById('new-shell'),
+      title: document.getElementById('session-title'),
+      meta: document.getElementById('session-meta'),
+      status: document.getElementById('global-status'),
+      sessionsBtn: document.getElementById('sessions-btn'),
+      keysBtn: document.getElementById('keys-btn'),
+      sessionActions: document.getElementById('session-actions'),
+      restart: document.getElementById('restart-btn'),
+      rename: document.getElementById('rename-btn'),
+      stop: document.getElementById('stop-btn'),
+      archive: document.getElementById('archive-btn'),
+      delete: document.getElementById('delete-btn'),
+      kbd: document.getElementById('kbd'),
+      kbdMode: document.getElementById('kbd-mode'),
+      kbdFnToggle: document.getElementById('kbd-fn-toggle'),
+      kbdHide: document.getElementById('kbd-hide'),
+      row1: document.getElementById('kbd-row-1'),
+      row2: document.getElementById('kbd-row-2'),
+      row3: document.getElementById('kbd-row-3'),
+    };
+
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    let toastTimer = null;
+
+    function showToast(message) {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      if (toastTimer) clearTimeout(toastTimer);
+      const div = document.createElement('div');
+      div.className = 'toast';
+      div.textContent = message;
+      document.body.appendChild(div);
+      toastTimer = setTimeout(() => {
+        div.classList.add('fade-out');
+        setTimeout(() => div.remove(), 300);
+      }, 4000);
+    }
+    const mobileMedia = window.matchMedia('(max-width: 900px)');
+    const modifierButtons = {};
+    let sessionRefreshTimer = null;
+
+    function pill(status) {
+      const s = String(status || 'starting');
+      return `<span class="pill ${s}">${s}</span>`;
+    }
+
+    function badges(session) {
+      const parts = [pill(session.status)];
+      if (session.archived) parts.push('<span class="pill archived">archived</span>');
+      return parts.join(' ');
+    }
+
+    function unreadBadge(sessionId) {
+      const unread = state.unreadBySession[sessionId] || 0;
+      if (!unread) return '';
+      const label = unread > 99 ? '99+' : String(unread);
+      return `<span class="unread-badge">${label}</span>`;
+    }
+
+    function visibleSessions() {
+      return state.sessions.filter((session) => state.showArchived || !session.archived);
+    }
+
+    function wsUrl(id) {
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      return `${protocol}://${location.host}/ws/${id}`;
+    }
+
+    function b64(bytes) {
+      let s = '';
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+
+    function b64ToBytes(s) {
+      const raw = atob(s);
+      const out = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+      return out;
+    }
+
+    function setStatus(text) {
+      el.status.textContent = text;
+    }
+
+    function setViewportHeight() {
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
+    }
+
+    function syncSidebar() {
+      document.body.classList.toggle('sidebar-open', state.isMobile && state.sidebarOpen);
+    }
+
+    function syncKeyboard() {
+      const showKeyboard = !state.isMobile || state.keyboardVisible;
+      el.kbd.hidden = !showKeyboard;
+      el.row2.hidden = state.isMobile ? state.keyboardFns : false;
+      el.row3.hidden = state.isMobile ? !state.keyboardFns : false;
+      el.kbdMode.textContent = state.keyboardFns ? 'function row' : 'nav keys';
+      el.kbdFnToggle.textContent = state.keyboardFns ? 'Nav' : 'Fn';
+      el.keysBtn.textContent = state.keyboardVisible ? 'Hide Keys' : 'Keys';
+      el.kbdHide.hidden = !state.isMobile;
+    }
+
+    function syncLayoutMode() {
+      state.isMobile = mobileMedia.matches;
+      if (state.isMobile) {
+        state.keyboardVisible = false;
+      } else {
+        state.keyboardVisible = true;
+        state.sidebarOpen = false;
+        state.keyboardFns = false;
+      }
+      syncSidebar();
+      syncKeyboard();
+      term.options.fontSize = state.isMobile ? 13 : 14;
+      requestAnimationFrame(() => {
+        fitAddon.fit();
+        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+        updateToolbar();
+      });
+    }
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        headers: { 'content-type': 'application/json' },
+        ...options,
+      });
+      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    function renderSessions() {
+      el.list.innerHTML = '';
+      el.toggleArchived.textContent = state.showArchived ? 'Hide Archived' : 'Show Archived';
+      for (const s of visibleSessions()) {
+        const li = document.createElement('li');
+        li.className = `session-item ${s.id === state.activeSessionId ? 'active' : ''}`;
+        li.innerHTML = `
+          <div class="top">
+            <strong>${s.name}</strong>
+            <div class="top-right">
+              ${unreadBadge(s.id)}
+              ${badges(s)}
+            </div>
+          </div>
+          <div class="meta">${s.shell} ${s.args?.join(' ') || ''}</div>
+          <div class="meta">${s.cwd}</div>
+        `;
+        li.onclick = () => selectSession(s.id);
+        el.list.appendChild(li);
+      }
+    }
+
+    async function refreshSessions(selectNewest = false) {
+      const previousById = Object.fromEntries(state.sessions.map((session) => [session.id, session]));
+      state.sessions = await api('/api/sessions');
+      state.sessions.sort((a, b) => {
+        if (a.archived !== b.archived) return a.archived ? 1 : -1;
+        return a.created_at.localeCompare(b.created_at);
+      });
+      for (const session of state.sessions) {
+        const prev = previousById[session.id];
+        if (
+          prev &&
+          session.id !== state.activeSessionId &&
+          !session.archived &&
+          session.last_activity_at > prev.last_activity_at
+        ) {
+          state.unreadBySession[session.id] = (state.unreadBySession[session.id] || 0) + 1;
+        }
+      }
+      const visible = visibleSessions();
+      if (state.activeSessionId && !visible.some((s) => s.id === state.activeSessionId)) {
+        state.activeSessionId = null;
+        closeSocket();
+      }
+      renderSessions();
+      if (selectNewest && visible.length) {
+        await selectSession(visible[visible.length - 1].id);
+      }
+      if (!state.activeSessionId && visible.length) {
+        await selectSession(visible[0].id);
+      } else if (!visible.length) {
+        term.reset();
+        updateToolbar();
+      }
+    }
+
+    function activeSession() {
+      return state.sessions.find(s => s.id === state.activeSessionId) || null;
+    }
+
+    function updateToolbar() {
+      const s = activeSession();
+      if (!s) {
+        el.title.textContent = 'No session selected';
+        el.meta.textContent = 'Create or choose a session from the sidebar';
+        el.sessionActions.hidden = true;
+        return;
+      }
+      el.sessionActions.hidden = false;
+      el.title.textContent = s.name;
+      el.meta.textContent = state.isMobile
+        ? `${s.status}${s.archived ? ' · archived' : ''} · ${s.cwd}`
+        : `${s.cwd} | ${s.status}${s.archived ? ' | archived' : ''} | clients: ${s.attached_clients}`;
+      el.restart.disabled = s.archived;
+      el.rename.disabled = false;
+      el.stop.disabled = !(s.status === 'running' || s.status === 'starting');
+      el.archive.disabled = false;
+      el.delete.disabled = false;
+      el.archive.textContent = s.archived ? 'Restore' : 'Archive';
+    }
+
+    async function selectSession(id) {
+      if (state.activeSessionId === id) return;
+      state.activeSessionId = id;
+      state.unreadBySession[id] = 0;
+      state.sidebarOpen = false;
+      syncSidebar();
+      renderSessions();
+      updateToolbar();
+      term.reset();
+      await connectSocket();
+    }
+
+    function modifierMode(name) {
+      return state.modifiers[name]?.mode || 'off';
+    }
+
+    function setModifierMode(name, mode) {
+      if (!state.modifiers[name]) return;
+      state.modifiers[name].mode = mode;
+      renderModifierButtons();
+    }
+
+    function consumeModifier(name) {
+      if (modifierMode(name) === 'one_shot') {
+        setModifierMode(name, 'off');
+      }
+    }
+
+    function renderModifierButtons() {
+      Object.entries(modifierButtons).forEach(([name, button]) => {
+        const mode = modifierMode(name);
+        button.classList.toggle('oneshot', mode === 'one_shot');
+        button.classList.toggle('locked', mode === 'locked');
+      });
+    }
+
+    function toggleModifier(name) {
+      const modifier = state.modifiers[name];
+      if (!modifier) return;
+      const now = Date.now();
+      if (modifier.mode === 'locked') {
+        modifier.mode = 'off';
+      } else if (modifier.mode === 'one_shot' && now - modifier.lastTapAt <= 400) {
+        modifier.mode = 'locked';
+      } else if (modifier.mode === 'one_shot') {
+        modifier.mode = 'off';
+      } else {
+        modifier.mode = 'one_shot';
+      }
+      modifier.lastTapAt = now;
+      renderModifierButtons();
+    }
+
+    function ctrlify(data) {
+      if (!data) return data;
+      const ch = data[0];
+      const code = ch.charCodeAt(0);
+      if (code >= 97 && code <= 122) return String.fromCharCode(code - 96);
+      if (code >= 65 && code <= 90) return String.fromCharCode(code - 64);
+      const map = {
+        '@': '\x00',
+        ' ': '\x00',
+        '[': '\x1b',
+        '\\': '\x1c',
+        ']': '\x1d',
+        '^': '\x1e',
+        '_': '\x1f',
+        '?': '\x7f',
+        '2': '\x00',
+        '3': '\x1b',
+        '4': '\x1c',
+        '5': '\x1d',
+        '6': '\x1e',
+        '7': '\x1f',
+        '8': '\x7f',
+      };
+      return map[ch] || data;
+    }
+
+    function applyInputModifiers(data) {
+      let out = data;
+      if (modifierMode('ctrl') !== 'off') {
+        out = ctrlify(out);
+        consumeModifier('ctrl');
+      }
+      if (modifierMode('alt') !== 'off') {
+        out = `\x1b${out}`;
+        consumeModifier('alt');
+      }
+      return out;
+    }
+
+    function sendInputText(text) {
+      sendFrame({
+        type: 'input',
+        data_b64: b64(enc.encode(text)),
+      });
+    }
+
+    function sendSoftKeyBytes(bytes, { consumeCtrl = false, consumeAlt = true } = {}) {
+      let out = bytes;
+      if (modifierMode('alt') !== 'off') {
+        out = `\x1b${out}`;
+        if (consumeAlt) consumeModifier('alt');
+      }
+      if (consumeCtrl) consumeModifier('ctrl');
+      sendInputText(out);
+    }
+
+    function startSessionRefreshLoop() {
+      if (sessionRefreshTimer) clearInterval(sessionRefreshTimer);
+      sessionRefreshTimer = setInterval(() => {
+        refreshSessions(false).catch((err) => {
+          console.error('session refresh failed', err);
+        });
+      }, 3000);
+    }
+
+    function closeSocket() {
+      if (state.socket) {
+        state.socket.onclose = null;
+        state.socket.close();
+        state.socket = null;
+      }
+      setStatus('disconnected');
+    }
+
+    async function connectSocket() {
+      closeSocket();
+      const id = state.activeSessionId;
+      if (!id) return;
+      const resume = state.seqBySession[id] || null;
+      const socket = new WebSocket(wsUrl(id));
+      state.socket = socket;
+      setStatus('connecting');
+
+      socket.onopen = () => {
+        setStatus('connected');
+        socket.send(JSON.stringify({
+          type: 'hello',
+          cols: term.cols,
+          rows: term.rows,
+          resume_from_seq: resume,
+          capabilities: { mobile: /Mobi|Android/i.test(navigator.userAgent), keyboard_overlay: true },
+        }));
+      };
+
+      socket.onmessage = (ev) => {
+        const frame = JSON.parse(ev.data);
+        if (frame.type === 'snapshot') {
+          state.unreadBySession[id] = 0;
+          for (const c of frame.chunks || []) {
+            state.seqBySession[id] = Math.max(state.seqBySession[id] || 0, c.seq);
+            term.write(dec.decode(b64ToBytes(c.data_b64)));
+          }
+        } else if (frame.type === 'output') {
+          state.unreadBySession[id] = 0;
+          state.seqBySession[id] = Math.max(state.seqBySession[id] || 0, frame.seq);
+          term.write(dec.decode(b64ToBytes(frame.data_b64)));
+        } else if (frame.type === 'status') {
+          const s = activeSession();
+          if (s) {
+            s.status = frame.running ? 'running' : 'exited';
+            s.attached_clients = frame.attached_clients;
+            renderSessions();
+            updateToolbar();
+          }
+        } else if (frame.type === 'error') {
+          term.writeln(`\\r\\n[error] ${frame.message}`);
+        }
+      };
+
+      socket.onclose = () => {
+        setStatus('disconnected');
+      };
+    }
+
+    function sendFrame(frame) {
+      if (!state.socket || state.socket.readyState !== WebSocket.OPEN) return;
+      state.socket.send(JSON.stringify(frame));
+    }
+
+    term.onData((data) => {
+      if (state.activeSessionId) {
+        state.unreadBySession[state.activeSessionId] = 0;
+      }
+      sendInputText(applyInputModifiers(data));
+    });
+
+    term.onResize(({ cols, rows }) => {
+      sendFrame({ type: 'resize', cols, rows });
+    });
+
+    window.addEventListener('resize', () => {
+      setViewportHeight();
+      fitAddon.fit();
+      sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        setViewportHeight();
+        fitAddon.fit();
+        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+      });
+    }
+
+    el.createForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const body = {
+          name: el.name.value.trim(),
+          cwd: el.cwd.value.trim(),
+          shell: el.shell.value.trim(),
+          args: [],
+        };
+        await api('/api/sessions', { method: 'POST', body: JSON.stringify(body) });
+        await refreshSessions(true);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    el.restart.addEventListener('click', async () => {
+      try {
+        if (!state.activeSessionId) return;
+        await api(`/api/sessions/${state.activeSessionId}/restart`, { method: 'POST' });
+        await refreshSessions(false);
+        await connectSocket();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    el.rename.addEventListener('click', async () => {
+      try {
+        const session = activeSession();
+        if (!session) return;
+        const name = window.prompt('Rename session', session.name);
+        if (!name || name.trim() === '' || name.trim() === session.name) return;
+        await api(`/api/sessions/${session.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        await refreshSessions(false);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    el.stop.addEventListener('click', async () => {
+      try {
+        const session = activeSession();
+        if (!session) return;
+        await api(`/api/sessions/${session.id}/stop`, { method: 'POST' });
+        await refreshSessions(false);
+        await connectSocket();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    el.archive.addEventListener('click', async () => {
+      try {
+        const session = activeSession();
+        if (!session) return;
+        const endpoint = session.archived ? 'restore' : 'archive';
+        await api(`/api/sessions/${session.id}/${endpoint}`, { method: 'POST' });
+        await refreshSessions(false);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    el.delete.addEventListener('click', async () => {
+      try {
+        const session = activeSession();
+        if (!session) return;
+        if (!window.confirm(`Delete session "${session.name}"?`)) return;
+        delete state.seqBySession[session.id];
+        await api(`/api/sessions/${session.id}`, { method: 'DELETE' });
+        state.activeSessionId = null;
+        closeSocket();
+        await refreshSessions(false);
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    function addKeyButton(parent, label, action, className = '') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `key ${className}`.trim();
+      btn.textContent = label;
+      if (action.modifier) {
+        modifierButtons[action.modifier] = btn;
+        btn.onclick = () => toggleModifier(action.modifier);
+      } else {
+        btn.onclick = () => sendSoftKeyBytes(action.bytes);
+      }
+      parent.appendChild(btn);
+      return btn;
+    }
+
+    [
+      ['Ctrl', { modifier: 'ctrl' }, 'mod'],
+      ['Alt', { modifier: 'alt' }, 'mod'],
+      ['Esc', { bytes: '\x1b' }, ''],
+      ['Tab', { bytes: '\t' }, ''],
+      ['Home', { bytes: '\x1b[H' }, 'wide'],
+      ['End', { bytes: '\x1b[F' }, 'wide'],
+      ['PgUp', { bytes: '\x1b[5~' }, 'wide'],
+      ['PgDn', { bytes: '\x1b[6~' }, 'wide'],
+    ].forEach(([label, action, cls]) => addKeyButton(el.row1, label, action, cls));
+
+    [
+      ['↑', { bytes: '\x1b[A' }],
+      ['↓', { bytes: '\x1b[B' }],
+      ['←', { bytes: '\x1b[D' }],
+      ['→', { bytes: '\x1b[C' }],
+    ].forEach(([label, action]) => addKeyButton(el.row2, label, action));
+
+    for (let i = 1; i <= 12; i++) {
+      const map = {
+        1: '\x1bOP',
+        2: '\x1bOQ',
+        3: '\x1bOR',
+        4: '\x1bOS',
+        5: '\x1b[15~',
+        6: '\x1b[17~',
+        7: '\x1b[18~',
+        8: '\x1b[19~',
+        9: '\x1b[20~',
+        10: '\x1b[21~',
+        11: '\x1b[23~',
+        12: '\x1b[24~',
+      };
+      addKeyButton(el.row3, `F${i}`, { bytes: map[i] });
+    }
+
+    el.sessionsBtn.addEventListener('click', () => {
+      state.sidebarOpen = !state.sidebarOpen;
+      syncSidebar();
+    });
+
+    el.keysBtn.addEventListener('click', () => {
+      state.keyboardVisible = !state.keyboardVisible;
+      syncKeyboard();
+      requestAnimationFrame(() => {
+        fitAddon.fit();
+        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+      });
+    });
+
+    el.kbdFnToggle.addEventListener('click', () => {
+      state.keyboardFns = !state.keyboardFns;
+      syncKeyboard();
+    });
+
+    el.kbdHide.addEventListener('click', () => {
+      state.keyboardVisible = false;
+      syncKeyboard();
+      requestAnimationFrame(() => {
+        fitAddon.fit();
+        sendFrame({ type: 'resize', cols: term.cols, rows: term.rows });
+      });
+    });
+
+    el.scrim.addEventListener('click', () => {
+      state.sidebarOpen = false;
+      syncSidebar();
+    });
+
+    el.toggleArchived.addEventListener('click', async () => {
+      state.showArchived = !state.showArchived;
+      await refreshSessions(false);
+    });
+
+    mobileMedia.addEventListener('change', syncLayoutMode);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && state.sidebarOpen) {
+        state.sidebarOpen = false;
+        syncSidebar();
+      }
+    });
+
+    setViewportHeight();
+    syncLayoutMode();
+    renderModifierButtons();
+    startSessionRefreshLoop();
+    refreshSessions();
+  </script>
+</body>
+</html>

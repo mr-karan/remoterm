@@ -1,0 +1,4 @@
+/target
+*.sqlite3
+remoterm-server-linux-amd64
+.env
